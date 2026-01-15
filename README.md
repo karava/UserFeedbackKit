@@ -17,14 +17,12 @@ A reusable Swift Package for collecting user feedback and bug reports in iOS app
 
 Add to your Xcode project:
 1. File → Add Package Dependencies
-2. Enter: `https://github.com/YOUR_ORG/UserFeedbackKit` (or use local path)
+2. Enter: `https://github.com/karava/UserFeedbackKit`
 
 Or add to `Package.swift`:
 ```swift
 dependencies: [
-    .package(path: "../UserFeedbackKit")  // Local path
-    // OR
-    .package(url: "https://github.com/YOUR_ORG/UserFeedbackKit", from: "1.0.0")
+    .package(url: "https://github.com/karava/UserFeedbackKit", from: "1.0.0")
 ]
 ```
 
@@ -103,6 +101,8 @@ struct MyApp: App {
     }
 }
 ```
+
+> **Important:** If you present views using `.fullScreenCover()` or `.sheet()`, the overlay on your root view won't be visible in those contexts. You'll need to add `.userFeedbackOverlay(service:)` to each full-screen presented view where you want the feedback prompt to appear.
 
 ### Auto-Prompt After Actions
 

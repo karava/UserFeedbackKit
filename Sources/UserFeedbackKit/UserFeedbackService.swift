@@ -35,34 +35,21 @@ public final class UserFeedbackService: ObservableObject {
         let count = completionCount + 1
         completionCount = count
 
-        print("🔍 [UserFeedbackKit] recordCompletion: count=\(count), triggerCounts=\(config.triggerCounts)")
-
         #if DEBUG
-        print("🔍 [UserFeedbackKit] DEBUG mode - setting pendingPrompt=true")
         pendingPrompt = true
         #else
         if config.triggerCounts.contains(count) {
-            print("🔍 [UserFeedbackKit] RELEASE mode - count in triggerCounts, setting pendingPrompt=true")
             pendingPrompt = true
-        } else {
-            print("🔍 [UserFeedbackKit] RELEASE mode - count NOT in triggerCounts")
         }
         #endif
-
-        print("🔍 [UserFeedbackKit] recordCompletion done: pendingPrompt=\(pendingPrompt)")
     }
 
     /// Call this at an appropriate moment to show the auto-triggered prompt
     public func presentAutoPromptIfNeeded() {
-        print("🔍 [UserFeedbackKit] presentAutoPromptIfNeeded: pendingPrompt=\(pendingPrompt)")
-        guard pendingPrompt else {
-            print("🔍 [UserFeedbackKit] pendingPrompt is false, returning early")
-            return
-        }
+        guard pendingPrompt else { return }
         pendingPrompt = false
         currentMode = .feedback
         isPromptPresented = true
-        print("🔍 [UserFeedbackKit] Set isPromptPresented=true")
     }
 
     // MARK: - Manual Triggers (for Settings menu)
