@@ -75,7 +75,7 @@ public final class UserFeedbackService: ObservableObject {
     }
 
     public func submit() {
-        let type = currentMode == .feedback ? "Feedback" : "Bug Report"
+        let type = currentMode == .feedback ? "Feedback" : "Bug"
         sendToGoogleForm(type: type, rating: currentMode == .feedback ? rating : nil, message: feedbackText)
         dismiss()
     }
