@@ -6,6 +6,18 @@ public enum FeedbackMode {
     case bugReport   // Text only
 }
 
+/// Feedback event for analytics callbacks
+public enum FeedbackEvent {
+    case shown(mode: FeedbackMode, trigger: FeedbackTrigger)
+    case submitted(mode: FeedbackMode, rating: Int, hasMessage: Bool)
+    case dismissed(mode: FeedbackMode)
+}
+
+public enum FeedbackTrigger {
+    case auto
+    case manual
+}
+
 public final class UserFeedbackService: ObservableObject {
     // MARK: - Published State
     @Published public var isPromptPresented = false
@@ -16,6 +28,9 @@ public final class UserFeedbackService: ObservableObject {
     // MARK: - Configuration
     public let config: UserFeedbackConfig
     public let theme: UserFeedbackTheme
+
+    // MARK: - Analytics Callback
+    public var onEvent: ((FeedbackEvent) -> Void)?
 
     // MARK: - Storage Keys
     private var completionCountKey: String { "\(config.storageKeyPrefix)_completion_count" }
@@ -50,6 +65,7 @@ public final class UserFeedbackService: ObservableObject {
         pendingPrompt = false
         currentMode = .feedback
         isPromptPresented = true
+        onEvent?(.shown(mode: .feedback, trigger: .auto))
     }
 
     // MARK: - Manual Triggers (for Settings menu)
@@ -58,26 +74,36 @@ public final class UserFeedbackService: ObservableObject {
     public func presentFeedback() {
         currentMode = .feedback
         isPromptPresented = true
+        onEvent?(.shown(mode: .feedback, trigger: .manual))
     }
 
     /// Manually show the bug report prompt (no star rating)
     public func presentBugReport() {
         currentMode = .bugReport
         isPromptPresented = true
+        onEvent?(.shown(mode: .bugReport, trigger: .manual))
     }
 
     // MARK: - Actions
 
     public func dismiss() {
+        onEvent?(.dismissed(mode: currentMode))
         isPromptPresented = false
         rating = 0
         feedbackText = ""
     }
 
     public func submit() {
-        let type = currentMode == .feedback ? "Feedback" : "Bug"
-        sendToGoogleForm(type: type, rating: currentMode == .feedback ? rating : nil, message: feedbackText)
-        dismiss()
+        let mode = currentMode
+        let ratingValue = rating
+        let hasMessage = !feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        onEvent?(.submitted(mode: mode, rating: ratingValue, hasMessage: hasMessage))
+
+        let type = mode == .feedback ? "Feedback" : "Bug"
+        sendToGoogleForm(type: type, rating: mode == .feedback ? ratingValue : nil, message: feedbackText)
+        isPromptPresented = false
+        rating = 0
+        feedbackText = ""
     }
 
     // MARK: - Private Storage
