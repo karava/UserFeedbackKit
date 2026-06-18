@@ -19,6 +19,9 @@ public struct UserFeedbackPromptView: View {
     }
 
     private var canSubmit: Bool {
+        if config.requireEmail && !service.isEmailValid {
+            return false
+        }
         if service.currentMode == .bugReport {
             return !service.feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         } else {
@@ -68,6 +71,25 @@ public struct UserFeedbackPromptView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(theme.borderColor.opacity(0.6), lineWidth: 1)
                     )
+            }
+
+            // Email (optional unless requireEmail is set) — lets us follow up.
+            if config.collectEmail {
+                TextField("", text: $service.email, prompt:
+                    Text(config.emailPlaceholder).foregroundColor(theme.secondaryTextColor)
+                )
+                .foregroundColor(theme.textColor)
+                .textContentType(.emailAddress)
+                .keyboardType(.emailAddress)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
+                .padding(12)
+                .background(theme.surfaceColor)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(theme.borderColor.opacity(0.6), lineWidth: 1)
+                )
             }
 
             // Buttons

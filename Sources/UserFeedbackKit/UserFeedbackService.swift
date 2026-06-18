@@ -24,6 +24,7 @@ public final class UserFeedbackService: ObservableObject {
     @Published public var currentMode: FeedbackMode = .feedback
     @Published public var rating: Int = 0
     @Published public var feedbackText: String = ""
+    @Published public var email: String = ""
 
     // MARK: - Configuration
     public let config: UserFeedbackConfig
@@ -32,15 +33,36 @@ public final class UserFeedbackService: ObservableObject {
     // MARK: - Analytics Callback
     public var onEvent: ((FeedbackEvent) -> Void)?
 
+    /// Optional app-supplied support code (e.g. an anonymous user id), evaluated at
+    /// submit time and sent silently with the form submission. Never shown in the UI.
+    public var supportCodeProvider: (() -> String?)?
+
     // MARK: - Storage Keys
     private var completionCountKey: String { "\(config.storageKeyPrefix)_completion_count" }
     private var pendingPromptKey: String { "\(config.storageKeyPrefix)_pending_prompt" }
+    private var cachedEmailKey: String { "\(config.storageKeyPrefix)_cached_email" }
 
     // MARK: - Initialization
 
     public init(config: UserFeedbackConfig, theme: UserFeedbackTheme = DefaultFeedbackTheme()) {
         self.config = config
         self.theme = theme
+    }
+
+    // MARK: - Email Helpers
+
+    /// A very light sanity check — enough to gate `requireEmail`, not RFC-strict.
+    public var isEmailValid: Bool {
+        let trimmed = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let at = trimmed.firstIndex(of: "@"), at != trimmed.startIndex else { return false }
+        let domain = trimmed[trimmed.index(after: at)...]
+        return domain.contains(".") && !domain.hasSuffix(".")
+    }
+
+    /// Loads the previously entered email so repeat reporters don't retype it.
+    private func loadCachedEmail() {
+        guard config.collectEmail else { return }
+        email = UserDefaults.standard.string(forKey: cachedEmailKey) ?? ""
     }
 
     // MARK: - Auto-Prompt Triggers
@@ -63,6 +85,7 @@ public final class UserFeedbackService: ObservableObject {
     public func presentAutoPromptIfNeeded() {
         guard pendingPrompt else { return }
         pendingPrompt = false
+        loadCachedEmail()
         currentMode = .feedback
         isPromptPresented = true
         onEvent?(.shown(mode: .feedback, trigger: .auto))
@@ -72,6 +95,7 @@ public final class UserFeedbackService: ObservableObject {
 
     /// Manually show the feedback prompt (with star rating)
     public func presentFeedback() {
+        loadCachedEmail()
         currentMode = .feedback
         isPromptPresented = true
         onEvent?(.shown(mode: .feedback, trigger: .manual))
@@ -79,6 +103,7 @@ public final class UserFeedbackService: ObservableObject {
 
     /// Manually show the bug report prompt (no star rating)
     public func presentBugReport() {
+        loadCachedEmail()
         currentMode = .bugReport
         isPromptPresented = true
         onEvent?(.shown(mode: .bugReport, trigger: .manual))
@@ -91,6 +116,7 @@ public final class UserFeedbackService: ObservableObject {
         isPromptPresented = false
         rating = 0
         feedbackText = ""
+        email = ""
     }
 
     public func submit() {
@@ -99,11 +125,24 @@ public final class UserFeedbackService: ObservableObject {
         let hasMessage = !feedbackText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         onEvent?(.submitted(mode: mode, rating: ratingValue, hasMessage: hasMessage))
 
+        let trimmedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        if config.collectEmail, !trimmedEmail.isEmpty {
+            // Remember the email so repeat reporters don't have to retype it.
+            UserDefaults.standard.set(trimmedEmail, forKey: cachedEmailKey)
+        }
+
         let type = mode == .feedback ? "Feedback" : "Bug"
-        sendToGoogleForm(type: type, rating: mode == .feedback ? ratingValue : nil, message: feedbackText)
+        sendToGoogleForm(
+            type: type,
+            rating: mode == .feedback ? ratingValue : nil,
+            message: feedbackText,
+            email: trimmedEmail,
+            supportCode: supportCodeProvider?()?.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
         isPromptPresented = false
         rating = 0
         feedbackText = ""
+        email = ""
     }
 
     // MARK: - Private Storage
@@ -120,7 +159,7 @@ public final class UserFeedbackService: ObservableObject {
 
     // MARK: - Google Form Submission
 
-    private func sendToGoogleForm(type: String, rating: Int?, message: String) {
+    private func sendToGoogleForm(type: String, rating: Int?, message: String, email: String, supportCode: String?) {
         guard let url = URL(string: config.formURL) else { return }
 
         let systemVersion = "iOS-\(ProcessInfo.processInfo.operatingSystemVersionString)"
@@ -130,11 +169,16 @@ public final class UserFeedbackService: ObservableObject {
         var queryItems = [
             URLQueryItem(name: config.entryType, value: type),
             URLQueryItem(name: config.entryMessage, value: message),
-            URLQueryItem(name: config.entryEmail, value: ""),
+            URLQueryItem(name: config.entryEmail, value: email),
             URLQueryItem(name: config.entrySystemVersion, value: systemVersion),
             URLQueryItem(name: config.entryAppIdentifier, value: config.appIdentifier),
             URLQueryItem(name: config.entryAppVersion, value: appVersion)
         ]
+
+        // Silently attach the app-supplied support code when configured and available.
+        if !config.entrySupportCode.isEmpty, let supportCode, !supportCode.isEmpty {
+            queryItems.append(URLQueryItem(name: config.entrySupportCode, value: supportCode))
+        }
 
         // Only include rating for feedback (not bug reports)
         if let rating = rating {
