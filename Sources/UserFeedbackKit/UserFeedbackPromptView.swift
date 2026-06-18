@@ -33,8 +33,8 @@ public struct UserFeedbackPromptView: View {
     public var body: some View {
         Group {
             switch service.phase {
-            case .form:    formContent
-            case .success: successContent
+            case .form:    formContent.transition(.opacity)
+            case .success: successContent.transition(.opacity)
             }
         }
         .padding(.vertical, 24)
