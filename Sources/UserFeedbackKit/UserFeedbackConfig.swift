@@ -30,6 +30,7 @@ public struct UserFeedbackConfig {
     public let emailPlaceholder: String
     public let submitButtonText: String
     public let cancelButtonText: String
+    public let successTitle: String
 
     // MARK: - UserDefaults Keys (namespaced per app)
     public let storageKeyPrefix: String
@@ -55,6 +56,7 @@ public struct UserFeedbackConfig {
         emailPlaceholder: String = "Email (optional)",
         submitButtonText: String = "Submit",
         cancelButtonText: String = "Not Now",
+        successTitle: String = "Thanks for your feedback!",
         storageKeyPrefix: String = "user_feedback"
     ) {
         self.formURL = formURL
@@ -77,6 +79,7 @@ public struct UserFeedbackConfig {
         self.emailPlaceholder = emailPlaceholder
         self.submitButtonText = submitButtonText
         self.cancelButtonText = cancelButtonText
+        self.successTitle = successTitle
         self.storageKeyPrefix = storageKeyPrefix
     }
 }

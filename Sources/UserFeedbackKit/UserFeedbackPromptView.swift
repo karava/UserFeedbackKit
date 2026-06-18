@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct UserFeedbackPromptView: View {
     @ObservedObject var service: UserFeedbackService
+    @FocusState private var messageFocused: Bool
 
     public init(service: UserFeedbackService) {
         self.service = service
@@ -30,6 +31,44 @@ public struct UserFeedbackPromptView: View {
     }
 
     public var body: some View {
+        Group {
+            switch service.phase {
+            case .form:    formContent
+            case .success: successContent
+            }
+        }
+        .padding(.vertical, 24)
+        .padding(.horizontal, 20)
+        .background(theme.backgroundColor)
+        .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(theme.borderColor.opacity(0.6), lineWidth: 1)
+        )
+        .shadow(color: theme.shadowColor.opacity(0.25), radius: 12, x: 0, y: 6)
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: service.phase)
+    }
+
+    // MARK: - Success Confirmation
+
+    private var successContent: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 52, weight: .semibold))
+                .foregroundColor(theme.primaryColor)
+                .transition(.scale.combined(with: .opacity))
+            Text(config.successTitle)
+                .font(.headline)
+                .multilineTextAlignment(.center)
+                .foregroundColor(theme.textColor)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    // MARK: - Form
+
+    private var formContent: some View {
         VStack(spacing: 20) {
             Text(title)
                 .font(.title2.bold())
@@ -61,6 +100,7 @@ public struct UserFeedbackPromptView: View {
                 }
 
                 TextEditor(text: $service.feedbackText)
+                    .focused($messageFocused)
                     .foregroundColor(theme.textColor)
                     .padding(8)
                     .frame(height: 140)
@@ -116,14 +156,12 @@ public struct UserFeedbackPromptView: View {
                 .disabled(!canSubmit)
             }
         }
-        .padding(.vertical, 24)
-        .padding(.horizontal, 20)
-        .background(theme.backgroundColor)
-        .cornerRadius(20)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(theme.borderColor.opacity(0.6), lineWidth: 1)
-        )
-        .shadow(color: theme.shadowColor.opacity(0.25), radius: 12, x: 0, y: 6)
+        .onAppear {
+            // Bug reports are message-first — pop the keyboard straight into the field.
+            guard service.currentMode == .bugReport else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                messageFocused = true
+            }
+        }
     }
 }

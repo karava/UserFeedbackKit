@@ -19,12 +19,22 @@ public enum FeedbackTrigger {
 }
 
 public final class UserFeedbackService: ObservableObject {
+    /// Which screen the prompt is showing.
+    public enum Phase {
+        case form       // collecting input
+        case success    // "sent" confirmation, just before auto-dismiss
+    }
+
     // MARK: - Published State
     @Published public var isPromptPresented = false
+    @Published public var phase: Phase = .form
     @Published public var currentMode: FeedbackMode = .feedback
     @Published public var rating: Int = 0
     @Published public var feedbackText: String = ""
     @Published public var email: String = ""
+
+    /// How long the success confirmation stays up before the prompt dismisses.
+    public var successDisplayDuration: TimeInterval = 1.4
 
     // MARK: - Configuration
     public let config: UserFeedbackConfig
@@ -59,8 +69,9 @@ public final class UserFeedbackService: ObservableObject {
         return domain.contains(".") && !domain.hasSuffix(".")
     }
 
-    /// Loads the previously entered email so repeat reporters don't retype it.
-    private func loadCachedEmail() {
+    /// Resets transient state and loads the cached email — call before presenting.
+    private func prepareForPresentation() {
+        phase = .form
         guard config.collectEmail else { return }
         email = UserDefaults.standard.string(forKey: cachedEmailKey) ?? ""
     }
@@ -85,7 +96,7 @@ public final class UserFeedbackService: ObservableObject {
     public func presentAutoPromptIfNeeded() {
         guard pendingPrompt else { return }
         pendingPrompt = false
-        loadCachedEmail()
+        prepareForPresentation()
         currentMode = .feedback
         isPromptPresented = true
         onEvent?(.shown(mode: .feedback, trigger: .auto))
@@ -95,7 +106,7 @@ public final class UserFeedbackService: ObservableObject {
 
     /// Manually show the feedback prompt (with star rating)
     public func presentFeedback() {
-        loadCachedEmail()
+        prepareForPresentation()
         currentMode = .feedback
         isPromptPresented = true
         onEvent?(.shown(mode: .feedback, trigger: .manual))
@@ -103,7 +114,7 @@ public final class UserFeedbackService: ObservableObject {
 
     /// Manually show the bug report prompt (no star rating)
     public func presentBugReport() {
-        loadCachedEmail()
+        prepareForPresentation()
         currentMode = .bugReport
         isPromptPresented = true
         onEvent?(.shown(mode: .bugReport, trigger: .manual))
@@ -117,6 +128,7 @@ public final class UserFeedbackService: ObservableObject {
         rating = 0
         feedbackText = ""
         email = ""
+        phase = .form
     }
 
     public func submit() {
@@ -139,7 +151,19 @@ public final class UserFeedbackService: ObservableObject {
             email: trimmedEmail,
             supportCode: supportCodeProvider?()?.trimmingCharacters(in: .whitespacesAndNewlines)
         )
-        isPromptPresented = false
+
+        // Show the "sent" confirmation, then auto-dismiss so it doesn't feel abrupt.
+        phase = .success
+        DispatchQueue.main.asyncAfter(deadline: .now() + successDisplayDuration) { [weak self] in
+            guard let self, self.phase == .success else { return }
+            self.isPromptPresented = false
+            self.resetForm()
+        }
+    }
+
+    /// Clears transient input after the prompt has been dismissed.
+    private func resetForm() {
+        phase = .form
         rating = 0
         feedbackText = ""
         email = ""
