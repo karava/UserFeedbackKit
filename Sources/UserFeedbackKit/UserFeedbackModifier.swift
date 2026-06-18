@@ -16,7 +16,12 @@ public struct UserFeedbackOverlayModifier: ViewModifier {
 
                 UserFeedbackPromptView(service: service)
                     .padding(.horizontal, 24)
-                    .transition(.scale.combined(with: .opacity))
+                    // Entrance unchanged (zoom+fade); exit just fades so it doesn't
+                    // collapse to a point — that scale-down read as an abrupt snap.
+                    .transition(.asymmetric(
+                        insertion: .scale.combined(with: .opacity),
+                        removal: .opacity
+                    ))
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: service.isPromptPresented)
