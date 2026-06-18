@@ -10,16 +10,18 @@ public struct UserFeedbackOverlayModifier: ViewModifier {
             if service.isPromptPresented {
                 Color.black.opacity(0.4)
                     .ignoresSafeArea()
+                    .transition(.opacity)
                     .onTapGesture {
                         service.dismiss()
                     }
 
                 UserFeedbackPromptView(service: service)
                     .padding(.horizontal, 24)
-                    .transition(.scale.combined(with: .opacity))
+                    // Ease in/out from a near-full scale so it glides rather than pops.
+                    .transition(.scale(scale: 0.92, anchor: .center).combined(with: .opacity))
             }
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: service.isPromptPresented)
+        .animation(.spring(response: 0.42, dampingFraction: 0.92), value: service.isPromptPresented)
     }
 }
 
