@@ -156,13 +156,8 @@ public final class UserFeedbackService: ObservableObject {
         phase = .success
         DispatchQueue.main.asyncAfter(deadline: .now() + successDisplayDuration) { [weak self] in
             guard let self, self.phase == .success else { return }
-            // Dismiss while the checkmark is still showing...
             self.isPromptPresented = false
-            // ...then clear state once the card has animated out, so the form
-            // doesn't flash back in mid-dismiss.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                self.resetForm()
-            }
+            self.resetForm()
         }
     }
 
